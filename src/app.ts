@@ -60,6 +60,7 @@ export class App {
   private pick: FighterId = load(PICK_KEY, ['jaka', 'sari', 'gatot'] as const, 'jaka')
   private level: BotLevel = load(LEVEL_KEY, ['mudah', 'sedang', 'jago'] as const, 'sedang')
   private paused = false
+  private lastMatch: { won: boolean; winnerName: string; p1: string; p2: string; s1: number; s2: number; level: string } | null = null
 
   private accumulator = 0
   private last = performance.now()
@@ -127,6 +128,7 @@ export class App {
     })
     $('play').addEventListener('click', () => this.startDuel())
     $('again').addEventListener('click', () => this.startDuel())
+    $('share-score').addEventListener('click', () => this.shareResult())
     $('to-menu').addEventListener('click', () => this.toMenu())
     $('resume').addEventListener('click', () => this.setPaused(false))
     $('quit').addEventListener('click', () => this.toMenu())
@@ -372,6 +374,15 @@ export class App {
       }
       case 'matchOver': {
         const won = e.winner === 0
+        this.lastMatch = {
+          won,
+          winnerName: won ? name(0) : name(1),
+          p1: name(0),
+          p2: name(1),
+          s1: s.scores[0],
+          s2: s.scores[1],
+          level: this.level,
+        }
         $('result-title').textContent = e.winner === -1 ? 'Seri!' : won ? 'Kamu menang!' : 'Kalah…'
         $('result-score').textContent = `${s.scores[0]} – ${s.scores[1]}`
         $('result-sub').textContent =
@@ -386,6 +397,38 @@ export class App {
       }
       default:
         break
+    }
+  }
+
+  private shareResult(): void {
+    const m = this.lastMatch
+    if (!m) return
+    const status = m.won ? '🏆 MENANG JUARA PADEPOKAN!' : '🥋 KALAH BERTANDING'
+    const text =
+      `🥋 HASIL DUEL SILAT PADEPOKAN 🥋\n` +
+      `⚔️ Pendekar: ${m.p1} vs ${m.p2}\n` +
+      `Hasil: ${status}\n` +
+      `📊 Skor Akhir: ${m.s1} – ${m.s2}\n` +
+      `🎯 Tingkat Kesulitan: ${m.level.toUpperCase()}\n\n` +
+      `Bisa ngalahin pendekar silat padepokan? Main gratis di:\n` +
+      `👉 https://lwn2210.github.io/mini-arcade/silat-duel/`
+
+    const btn = $('share-score')
+    if (navigator.share) {
+      navigator.share({ title: 'Hasil Silat Duel!', text, url: 'https://lwn2210.github.io/mini-arcade/silat-duel/' }).catch(() => {})
+    } else if (navigator.clipboard) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          const orig = btn.textContent
+          btn.textContent = '✅ Hasil disalin ke clipboard!'
+          setTimeout(() => (btn.textContent = orig), 2500)
+        })
+        .catch(() => {
+          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank')
+        })
+    } else {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank')
     }
   }
 
