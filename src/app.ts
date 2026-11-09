@@ -59,6 +59,9 @@ export class App {
   private session: Session
   private pick: FighterId = load(PICK_KEY, ['jaka', 'sari', 'gatot'] as const, 'jaka')
   private level: BotLevel = load(LEVEL_KEY, ['mudah', 'sedang', 'jago'] as const, 'sedang')
+  private mode: 'single' | 'tournament' = 'single'
+  private tournamentStage = 0
+  private tournamentWon = false
   private paused = false
   private lastMatch: { won: boolean; winnerName: string; p1: string; p2: string; s1: number; s2: number; level: string } | null = null
 
@@ -116,6 +119,15 @@ export class App {
       save(PICK_KEY, this.pick)
       showPick()
     })
+    const modes = $('modes')
+    const showMode = () => modes.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.mode === this.mode))
+    showMode()
+    modes.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('button')
+      if (!btn) return
+      this.mode = btn.dataset.mode as 'single' | 'tournament'
+      showMode()
+    })
     const levels = $('levels')
     const showLevel = () => levels.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.level === this.level))
     showLevel()
@@ -127,7 +139,7 @@ export class App {
       showLevel()
     })
     $('play').addEventListener('click', () => this.startDuel())
-    $('again').addEventListener('click', () => this.startDuel())
+    $('again').addEventListener('click', () => this.handleAgain())
     $('share-score').addEventListener('click', () => this.shareResult())
     $('to-menu').addEventListener('click', () => this.toMenu())
     $('resume').addEventListener('click', () => this.setPaused(false))
@@ -165,7 +177,46 @@ export class App {
     this.last = performance.now()
   }
 
-  private startDuel(): void {
+  private startDuel(advance = false): void {
+    if (this.mode === 'tournament') {
+      if (!advance) {
+        this.tournamentStage = 0
+        this.tournamentWon = false
+      }
+      const ladder: Record<FighterId, FighterId[]> = {
+        jaka: ['sari', 'gatot', 'jaka'],
+        sari: ['jaka', 'gatot', 'sari'],
+        gatot: ['jaka', 'sari', 'gatot'],
+      }
+      const foeList = ladder[this.pick]
+      const foe: FighterId = foeList[this.tournamentStage] ?? 'gatot'
+      const stageBotLevel: BotLevel =
+        this.tournamentStage === 0
+          ? this.level === 'jago'
+            ? 'sedang'
+            : 'mudah'
+          : this.tournamentStage === 1
+            ? this.level === 'mudah'
+              ? 'sedang'
+              : this.level
+            : 'jago'
+
+      const seed = (Math.random() * 2 ** 32) >>> 0
+      const state = createMatch(seed, [this.pick, foe])
+      this.useSession({ state, bots: [null, new Bot(1, stageBotLevel, seed ^ 0x9e3779b9)], live: true })
+      this.input.clear()
+      this.paused = false
+      this.showOnly(null)
+      $('pause').hidden = false
+      const foeTitle =
+        this.tournamentStage === 2
+          ? `Grandmaster ${name(foe)} (Final)`
+          : `${name(foe)} (Babak ${this.tournamentStage + 1})`
+      this.hud.show(state, ['Kamu', foeTitle])
+      this.sfx.intensity = 1
+      return
+    }
+
     const seed = (Math.random() * 2 ** 32) >>> 0
     const foe: FighterId = this.pick === 'jaka' ? 'sari' : this.pick === 'sari' ? 'gatot' : 'jaka'
     const state = createMatch(seed, [this.pick, foe])
@@ -176,6 +227,24 @@ export class App {
     $('pause').hidden = false
     this.hud.show(state, ['Kamu', LEVEL_NAMES[this.level]])
     this.sfx.intensity = 1
+  }
+
+  private handleAgain(): void {
+    if (this.mode === 'tournament') {
+      if (this.lastMatch?.won) {
+        if (this.tournamentStage < 2) {
+          this.tournamentStage++
+          this.startDuel(true)
+          return
+        }
+        this.tournamentStage = 0
+        this.startDuel(false)
+        return
+      }
+      this.startDuel(true)
+      return
+    }
+    this.startDuel()
   }
 
   private toMenu(): void {
@@ -383,14 +452,37 @@ export class App {
           s2: s.scores[1],
           level: this.level,
         }
-        $('result-title').textContent = e.winner === -1 ? 'Seri!' : won ? 'Kamu menang!' : 'Kalah…'
-        $('result-score').textContent = `${s.scores[0]} – ${s.scores[1]}`
-        $('result-sub').textContent =
-          e.winner === -1
-            ? 'Sama kuat. Besok tanding lagi.'
-            : won
-              ? `${name(0)} juara padepokan sore ini.`
-              : `${name(1)} masih terlalu kuat. Latihan lagi, coba tangkis dan banting.`
+        if (this.mode === 'tournament') {
+          if (won) {
+            if (this.tournamentStage < 2) {
+              $('result-title').textContent = `Lolos Babak ${this.tournamentStage + 1}!`
+              $('result-score').textContent = `${s.scores[0]} – ${s.scores[1]}`
+              $('result-sub').textContent = `Hebat! Bersiaplah menghadapi pendekar berikutnya di Babak ${this.tournamentStage + 2}.`
+              $('again').textContent = `Lanjut Babak ${this.tournamentStage + 2} →`
+            } else {
+              this.tournamentWon = true
+              $('result-title').textContent = '🏆 JAWARA AGUNG PADEPOKAN!'
+              $('result-score').textContent = `${s.scores[0]} – ${s.scores[1]}`
+              $('result-sub').textContent = 'Luar biasa! Kamu menumbangkan seluruh pendekar padepokan berturut-turut!'
+              $('again').textContent = 'Mulai Turnamen Baru'
+            }
+          } else {
+            $('result-title').textContent = 'Gugur di Turnamen…'
+            $('result-score').textContent = `${s.scores[0]} – ${s.scores[1]}`
+            $('result-sub').textContent = `Kalah di Babak ${this.tournamentStage + 1}. Tarik napas, coba lagi babak ini.`
+            $('again').textContent = `Ulangi Babak ${this.tournamentStage + 1}`
+          }
+        } else {
+          $('result-title').textContent = e.winner === -1 ? 'Seri!' : won ? 'Kamu menang!' : 'Kalah…'
+          $('result-score').textContent = `${s.scores[0]} – ${s.scores[1]}`
+          $('result-sub').textContent =
+            e.winner === -1
+              ? 'Sama kuat. Besok tanding lagi.'
+              : won
+                ? `${name(0)} juara padepokan sore ini.`
+                : `${name(1)} masih terlalu kuat. Latihan lagi, coba tangkis dan banting.`
+          $('again').textContent = 'Tanding lagi'
+        }
         $('pause').hidden = true
         this.showOnly('result')
         break
@@ -403,15 +495,31 @@ export class App {
   private shareResult(): void {
     const m = this.lastMatch
     if (!m) return
-    const status = m.won ? '🏆 MENANG JUARA PADEPOKAN!' : '🥋 KALAH BERTANDING'
-    const text =
-      `🥋 HASIL DUEL SILAT PADEPOKAN 🥋\n` +
-      `⚔️ Pendekar: ${m.p1} vs ${m.p2}\n` +
-      `Hasil: ${status}\n` +
-      `📊 Skor Akhir: ${m.s1} – ${m.s2}\n` +
-      `🎯 Tingkat Kesulitan: ${m.level.toUpperCase()}\n\n` +
-      `Bisa ngalahin pendekar silat padepokan? Main gratis di:\n` +
-      `👉 https://lwn2210.github.io/mini-arcade/silat-duel/`
+    let text = ''
+    if (this.mode === 'tournament') {
+      const status = this.tournamentWon
+        ? '🏆 JUARA 1 TURNAMEN PADEPOKAN (Sapu Bersih 3 Pendekar Berturut-turut!)'
+        : m.won
+          ? `⚡ Lolos Babak ${this.tournamentStage + 1} Turnamen`
+          : `Gugur di Babak ${this.tournamentStage + 1}`
+      text =
+        `🥋 LAPORAN TURNAMEN SILAT PADEPOKAN 🥋\n` +
+        `⚔️ Pendekar: ${m.p1}\n` +
+        `Hasil: ${status}\n` +
+        `📊 Skor Babak: ${m.s1} – ${m.s2}\n\n` +
+        `Bisa menangkan turnamen silat padepokan? Main gratis di:\n` +
+        `👉 https://lwn2210.github.io/mini-arcade/silat-duel/`
+    } else {
+      const status = m.won ? '🏆 MENANG JUARA PADEPOKAN!' : '🥋 KALAH BERTANDING'
+      text =
+        `🥋 HASIL DUEL SILAT PADEPOKAN 🥋\n` +
+        `⚔️ Pendekar: ${m.p1} vs ${m.p2}\n` +
+        `Hasil: ${status}\n` +
+        `📊 Skor Akhir: ${m.s1} – ${m.s2}\n` +
+        `🎯 Tingkat Kesulitan: ${m.level.toUpperCase()}\n\n` +
+        `Bisa ngalahin pendekar silat padepokan? Main gratis di:\n` +
+        `👉 https://lwn2210.github.io/mini-arcade/silat-duel/`
+    }
 
     const btn = $('share-score')
     if (navigator.share) {
