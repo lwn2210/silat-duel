@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#2b1a14" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Silat Duel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+      <div id="flash" class="flash"></div>
+
+      <div id="hud" hidden>
+        <div class="bars">
+          <div class="side p0">
+            <div class="hp"><div class="trail" id="trail0"></div><div class="fill" id="hp0"></div></div>
+            <div class="who"><b id="name0">Jaka</b><span class="tag" id="tag0">Kamu</span><span class="pips" id="pips0"></span></div>
+          </div>
+          <div class="timer" id="timer">60</div>
+          <div class="side p1">
+            <div class="hp"><div class="trail" id="trail1"></div><div class="fill" id="hp1"></div></div>
+            <div class="who"><span class="pips" id="pips1"></span><span class="tag" id="tag1">PC</span><b id="name1">Sari</b></div>
+          </div>
+        </div>
+
+        <div id="banner" class="banner"><b id="banner-main"></b><span id="banner-sub"></span></div>
+        <div id="combo0" class="combo c0"><b></b><span>Hit Kombo!</span><em></em></div>
+        <div id="combo1" class="combo c1"><b></b><span>Hit Kombo!</span><em></em></div>
+        <div id="toast" class="toast"></div>
+
+        <div class="hint" id="keys-hint">
+          <kbd>←</kbd><kbd>→</kbd> jalan (tahan mundur = tangkis) · <kbd>↓</kbd> jongkok · <kbd>↑</kbd> lompat · <kbd>J</kbd> Pukul · <kbd>K</kbd> Tendang · <kbd>U</kbd> Jurus · <kbd>L</kbd> Banting · <kbd>O</kbd> Tepis
+        </div>
+
+        <div class="touch" id="touch">
+          <div id="stick-zone">
+            <div id="stick"><div id="stick-knob"></div></div>
+          </div>
+          <div class="pad">
+            <button id="btn-parry" class="b-parry">Tepis</button>
+            <button id="btn-special" class="b-special">Jurus</button>
+            <button id="btn-punch" class="b-punch">Pukul</button>
+            <button id="btn-grab" class="b-grab">Banting</button>
+            <button id="btn-kick" class="b-kick">Tendang</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="corner">
+        <button id="pause" class="round-btn" aria-label="Jeda" hidden>❚❚</button>
+        <button id="mute" class="round-btn" aria-label="Suara nyala/mati">🔊</button>
+      </div>
+
+      <div id="menu" class="overlay">
+        <div class="panel wide">
+          <h1>Silat Duel</h1>
+          <p class="tagline">Adu jurus di pelataran padepokan, sore-sore sebelum obor dinyalakan semua.</p>
+
+          <div class="section-label">Pilih pendekar</div>
+          <div class="picks" id="picks">
+            <button class="pick jaka on" data-fighter="jaka">
+              <i class="swatch"></i>
+              <b>Jaka</b>
+              <span>Kuda-kuda kokoh, pukulannya berat.</span>
+              <em>Jurus: Tapak Harimau</em>
+            </button>
+            <button class="pick sari" data-fighter="sari">
+              <i class="swatch"></i>
+              <b>Sari</b>
+              <span>Lincah dan cepat, tendangannya terbang.</span>
+              <em>Jurus: Tendangan Rajawali</em>
+            </button>
+            <button class="pick gatot" data-fighter="gatot">
+              <i class="swatch"></i>
+              <b>Gatot</b>
+              <span>Pendekar gagah, pukulan guntur beruntun.</span>
+              <em>Jurus: Pukulan Guntur</em>
+            </button>
+          </div>
+
+          <div class="section-label">Lawan PC</div>
+          <div class="seg" id="levels">
+            <button data-level="mudah">Mudah</button>
+            <button data-level="sedang" class="on">Sedang</button>
+            <button data-level="jago">Jago</button>
+          </div>
+
+          <button id="play" class="btn">Mulai Duel!</button>
+
+          <details class="how">
+            <summary>Cara main</summary>
+            <ul>
+              <li><b>Jalan</b>: ← → (atau A D). Dobel tap maju = <b>dash</b>, dobel tap mundur = mundur cepat.</li>
+              <li><b>Tangkis</b>: tahan <b>mundur</b>. Berdiri menahan serangan atas &amp; tengah, <b>jongkok + mundur</b> menahan serangan bawah.</li>
+              <li><b>Jongkok</b> (↓) bikin serangan atas lewat. <b>Lompat kecil</b> (↑) melewati sapuan.</li>
+              <li><b>Pukul</b> (J), <b>Tendang</b> (K). Pencet beruntun buat kombo (lihat daftar di bawah). Tombol boleh dipencet agak duluan, nanti keluar sendiri.</li>
+              <li><b>↓ + Pukul</b> = pukul bawah, <b>↓ + Tendang</b> = sapuan (menjatuhkan, tapi gampang dihukum kalau ditangkis).</li>
+              <li><b>Jurus</b> (U, atau ↓ lalu → + Pukul): serangan pamungkas tiap pendekar.</li>
+              <li><b>Tepis</b> (O): pencet <b>tepat sebelum</b> pukulan/tendangan lawan kena. Serangannya ditepis tanpa damage dan lawan terhuyung: langsung balas combo! Kepagian = terbuka (kecuali tahan mundur, jadi tangkis biasa). Serangan bawah dan bantingan nggak bisa ditepis.</li>
+              <li><b>Banting</b> (L, atau Pukul + Tendang bareng): tembus tangkisan. Kena banting? Cepat pencet <b>Pukul</b> buat lepas.</li>
+              <li>Habis jatuh, pencet tombol apa saja buat bangun. Menang 2 ronde = juara. <kbd>P</kbd> jeda, <kbd>M</kbd> suara.</li>
+            </ul>
+          </details>
+          <details class="how">
+            <summary>Daftar jurus &amp; kombo</summary>
+            <table class="moves" data-movelist></table>
+          </details>
+        </div>
+      </div>
+
+      <div id="paused" class="overlay" hidden>
+        <div class="panel wide">
+          <h2>Jeda</h2>
+          <p class="tagline">Tarik napas dulu. Ini jurus-jurusnya:</p>
+          <table class="moves" data-movelist></table>
+          <button id="resume" class="btn">Lanjut</button>
+          <button id="quit" class="btn ghost">Keluar ke menu</button>
+        </div>
+      </div>
+
+      <div id="result" class="overlay" hidden>
+        <div class="panel">
+          <h2 id="result-title">Kamu menang!</h2>
+          <p class="score" id="result-score">2 – 1</p>
+          <p class="tagline" id="result-sub"></p>
+          <button id="again" class="btn">Tanding lagi</button>
+          <button id="to-menu" class="btn ghost">Ganti pendekar</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

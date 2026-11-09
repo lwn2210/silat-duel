@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Silat Duel</string>
+    <string name="title_activity_main">Silat Duel</string>
+    <string name="package_name">id.morfotech.silatduel</string>
+    <string name="custom_url_scheme">id.morfotech.silatduel</string>
+</resources>
