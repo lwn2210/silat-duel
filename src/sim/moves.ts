@@ -18,6 +18,7 @@ export type MoveId =
   | 'sweep'
   | 'tapak'
   | 'rajawali'
+  | 'guntur'
   | 'jumpKick'
   | 'throw'
 

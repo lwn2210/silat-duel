@@ -210,8 +210,8 @@ export class App {
       $('pause').hidden = false
       const foeTitle =
         this.tournamentStage === 2
-          ? `Grandmaster ${name(foe)} (Final)`
-          : `${name(foe)} (Babak ${this.tournamentStage + 1})`
+          ? `Grandmaster ${FIGHTERS[foe].name} (Final)`
+          : `${FIGHTERS[foe].name} (Babak ${this.tournamentStage + 1})`
       this.hud.show(state, ['Kamu', foeTitle])
       this.sfx.intensity = 1
       return
